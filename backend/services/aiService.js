@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 import { workoutPlans, exerciseLibrary, dietPlans } from '../data/fitnessData.js';
+import { formatExerciseContext, searchExerciseDataset } from './exerciseDataset.js';
+import { formatProgramContext } from './programDataset.js';
 
 dotenv.config();
 
@@ -13,6 +15,7 @@ export async function generateFitnessResponse(userQuery, userProfile = {}) {
   const bmiCategory = userProfile.bmiCategory || bmiData.bmiCategory;
   const fitnessGoal = userProfile.fitnessGoal || 'Build Muscle';
   const exercisePreference = userProfile.exercisePreference || 'Home Bodyweight';
+  const exerciseDatasetContext = await formatExerciseContext(userQuery, userProfile);
 
   const systemInstruction = `
 You are FitBot AI, an elite personal fitness trainer, bodyweight coach, and natural whole-food sports nutritionist.
@@ -67,6 +70,11 @@ IMPORTANT FORMAT FOR WEEKLY PLAN QUESTIONS:
 
 **Adjustment Notes**
 (What to do if BMI is low, normal, or high)
+
+DATASET GUIDANCE:
+  - Use the verified exercise records below when they match the user's question.
+  - Preserve the dataset's target muscles and form instructions, but adapt equipment suggestions to the user's home-only preference.
+  - Never invent a GIF URL or claim an exercise is equipment-free when the dataset says otherwise.
 `;
 
   const profileContext = `
@@ -80,6 +88,7 @@ User Profile Context:
 - Weight: ${userProfile.weight || 'Unknown'}
 - BMI: ${bmi || 'Unknown'}
 - BMI Category: ${bmiCategory}
+${exerciseDatasetContext ? `\nVerified Exercise Dataset Matches:\n${exerciseDatasetContext}` : ''}
 `;
 
   if (apiKey && apiKey.trim() !== '' && apiKey !== 'your_api_key_here') {
@@ -143,6 +152,10 @@ function generateSmartFallbackResponse(query, profile) {
   const homeSchedule = workoutPlans['Home Workout'].schedule;
   const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const has = (...words) => words.some(w => q.includes(w));
+  const datasetMatches = searchExerciseDataset(query, {
+    bodyweightOnly: exercisePreference.toLowerCase().includes('home'),
+    limit: 4
+  });
 
   const bmiNote = bmiCategory === 'Underweight'
     ? 'add one extra calorie-dense meal or snack daily to fuel growth.'
@@ -189,6 +202,23 @@ ${formatExercises(day.exercises)}
 **Alternative Exercise**
 * ${day.exercises[0]?.alternative || 'Swap any move for an easier bodyweight variation.'}`;
   };
+
+  if (datasetMatches.length && !has('diet', 'meal', 'eat', 'food', 'nutrition', 'protein')) {
+    const exercise = datasetMatches[0];
+    return `**Exercise Guide**
+${exercise.name} targets ${exercise.target} and primarily uses ${exercise.equipment}.
+
+**Instructions**
+${exercise.instructions.map((instruction, index) => `${index + 1}. ${instruction}`).join('\n')}
+
+**Muscles Worked**
+* Primary: ${exercise.target}
+* Secondary: ${exercise.secondaryMuscles.join(', ') || 'None listed'}
+
+**Safety Tips**
+* Move with control and stop if you feel sharp pain.
+* Your current profile is ${fitnessGoal.toLowerCase()} focused with a ${bmiCategory.toLowerCase()} BMI category.`;
+  }
 
   // 1. DIET / NUTRITION
   if (has('diet', 'meal', 'eat', 'food', 'nutrition', 'vegetarian', 'vegan', 'breakfast', 'lunch', 'dinner', 'snack', 'protein')) {
@@ -648,6 +678,7 @@ function buildPlanPrompt(userProfile, caps, bmi, bmiCategory) {
   const availableDays = Array.isArray(userProfile.availableDays) && userProfile.availableDays.length
     ? userProfile.availableDays.join(', ')
     : 'Monday, Tuesday, Wednesday, Thursday, Friday, Saturday';
+  const programContext = formatProgramContext(userProfile);
 
   return `
 Generate a fully personalized ONE-WEEK fitness + nutrition plan as STRICT JSON.
@@ -662,6 +693,7 @@ USER:
 - Dietary preference: ${pref}
 - Available training days: ${availableDays}
 - Current capacity (max in one set): push-ups ${caps.pushups}, squats ${caps.squats}, plank ${caps.plankSec}s, dips ${caps.dips}, lunges ${caps.lunges}, crunches ${caps.crunches}, jumping jacks ${caps.jumpingJacks}, skipping ${caps.skippingSec}s, continuous running ${caps.runMinutes} min
+${programContext ? `\nREFERENCE WORKOUT PROGRAMS FROM DATASET:\n${programContext}` : ''}
 
 HARD RULES:
 1. HOME ONLY, 100% equipment-free bodyweight. Never use dumbbells, barbells, bands, or machines.
