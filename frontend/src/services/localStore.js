@@ -157,6 +157,8 @@ function emptyUserData() {
     progress: {
       water: { date: todayKey(), cups: 0 },
       completions: {},
+      exercises: {},
+      meals: {},
       notes: []
     }
   };
@@ -177,6 +179,8 @@ export function getUserData(email) {
     progress: {
       water: data.progress?.water ?? { date: todayKey(), cups: 0 },
       completions: data.progress?.completions ?? {},
+      exercises: data.progress?.exercises ?? {},
+      meals: data.progress?.meals ?? {},
       notes: Array.isArray(data.progress?.notes) ? data.progress.notes : []
     }
   };
@@ -283,6 +287,48 @@ export function getStreak(email) {
     cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
+}
+
+export function getWorkoutExerciseProgress(email, dayKey = todayKey()) {
+  const progress = getUserData(email).progress.exercises?.[dayKey];
+  return progress && typeof progress === 'object' ? progress : {};
+}
+
+export function toggleWorkoutExercise(email, dayKey, exerciseKey) {
+  const data = getUserData(email);
+  const dayProgress = data.progress.exercises?.[dayKey] || {};
+  const key = String(exerciseKey);
+
+  if (dayProgress[key]) {
+    delete dayProgress[key];
+  } else {
+    dayProgress[key] = true;
+  }
+
+  data.progress.exercises[dayKey] = dayProgress;
+  saveUserData(email, data);
+  return Boolean(dayProgress[key]);
+}
+
+export function getMealProgress(email, dayKey = todayKey()) {
+  const progress = getUserData(email).progress.meals?.[dayKey];
+  return progress && typeof progress === 'object' ? progress : {};
+}
+
+export function toggleMeal(email, dayKey, mealKey) {
+  const data = getUserData(email);
+  const dayProgress = data.progress.meals?.[dayKey] || {};
+  const key = String(mealKey);
+
+  if (dayProgress[key]) {
+    delete dayProgress[key];
+  } else {
+    dayProgress[key] = true;
+  }
+
+  data.progress.meals[dayKey] = dayProgress;
+  saveUserData(email, data);
+  return Boolean(dayProgress[key]);
 }
 
 /* ------------------------- progress: journal ----------------------------- */

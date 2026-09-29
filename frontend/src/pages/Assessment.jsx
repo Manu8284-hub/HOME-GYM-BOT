@@ -159,6 +159,16 @@ export default function Assessment({ userProfile, setUserProfile, setUserPlan, o
     if (email) savePlan(email, plan);
     if (setUserPlan) setUserPlan(plan);
 
+    try {
+      await updateUserProfile({
+        ...profile,
+        plan,
+        onboardingComplete: true
+      });
+    } catch {
+      // Local storage remains the offline source of truth.
+    }
+
     setGenerating(false);
     if (onComplete) onComplete(profile, plan);
   };

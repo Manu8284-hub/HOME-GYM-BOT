@@ -25,7 +25,7 @@ import {
   isOnboarded,
   setOnboarded
 } from './services/localStore';
-import { getOrganizedPlan } from './services/api';
+import { getOrganizedPlan, getUserProfile } from './services/api';
 
 function initialTab(loggedIn, email) {
   if (!loggedIn || !email) return 'login';
@@ -78,7 +78,7 @@ export default function App() {
     setActiveTab('aicoach');
   }
 
-  function handleAuthed(sessionUser) {
+  async function handleAuthed(sessionUser) {
     const email = sessionUser?.email || '';
     if (!email) return;
 
@@ -87,16 +87,33 @@ export default function App() {
     setIsLoggedIn(true);
     setStartupStage('ready');
 
-    const data = getUserData(email);
+    const localData = getUserData(email);
+    let remoteData = null;
+    try {
+      remoteData = await getUserProfile(email);
+    } catch {
+      remoteData = null;
+    }
+
+    const data = {
+      ...localData,
+      profile: { ...(localData.profile || {}), ...(remoteData?.profile || {}) },
+      plan: localData.plan || remoteData?.plan || null,
+      onboardingComplete: localData.onboardingComplete || Boolean(remoteData?.onboardingComplete)
+    };
+    if (data.profile && Object.keys(data.profile).length > 0) {
+      saveProfile(email, data.profile);
+    }
+    if (data.plan && !localData.plan) savePlan(email, data.plan);
+
     const onboarded = data.onboardingComplete;
     setHasCompletedOnboarding(onboarded);
 
-    setUserProfile(
-      data.profile || {
-        email,
-        name: sessionUser?.name || ''
-      }
-    );
+    setUserProfile({
+      email,
+      name: sessionUser?.name || '',
+      ...(data.profile || {})
+    });
     setUserPlan(data.plan || null);
 
     setActiveTab(onboarded ? 'dashboard' : 'profile');
@@ -186,7 +203,7 @@ export default function App() {
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} userProfile={userProfile} sessionEmail={sessionEmail} />
         <div className="flex-1 flex flex-col min-w-0">
           <Navbar activeTab={activeTab} userProfile={userProfile} setUserProfile={setUserProfile} onQuickChat={() => handleAskAI("Give me a quick fitness check-in for today!")} onLogout={handleLogout} />
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <main className={`flex-1 w-full mx-auto p-4 sm:p-6 lg:p-8 ${activeTab === 'aicoach' ? 'max-w-none' : 'max-w-7xl'}`}>
             {renderActiveView()}
           </main>
         </div>

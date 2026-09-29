@@ -60,6 +60,15 @@
 .typing-dot:nth-child(1) { animation-delay: -0.32s; }
 .typing-dot:nth-child(2) { animation-delay: -0.16s; }
 
+@keyframes disclaimerMarquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-disclaimer-marquee {
+  animation: disclaimerMarquee 22s linear infinite;
+}
+
 /* Markdown styling inside AI messages */
 .ai-markdown strong {
   color: #f8fafc;

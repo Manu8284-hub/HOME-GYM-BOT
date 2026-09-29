@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Utensils, Flame, Apple, Coffee, Sun, Zap, Award, Moon, Droplets, Leaf, Bot, CheckCircle2 } from 'lucide-react';
 import { getDietPlan } from '../services/api';
+import { getSessionEmail, getMealProgress, toggleMeal } from '../services/localStore';
 
 const DIET_TYPES = ['Vegetarian', 'Non-Vegetarian', 'Vegan', 'Eggetarian'];
 
@@ -11,12 +12,24 @@ export default function DietPlanner({ userProfile, plan, onAskAI }) {
   const [activePreference, setActivePreference] = useState(ownPreference);
   const [fetchedDiet, setFetchedDiet] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [completedMeals, setCompletedMeals] = useState(() => getMealProgress(getSessionEmail()));
   const fitnessGoal = userProfile?.fitnessGoal || 'Build Muscle';
 
   // Show the user's own AI plan for their preference; fetch a generic plan
   // only when they browse a different diet type.
   const usingPersonalized = Boolean(userPlanDiet) && activePreference === ownPreference;
   const dietData = usingPersonalized ? userPlanDiet : fetchedDiet;
+
+  useEffect(() => {
+    setCompletedMeals(getMealProgress(getSessionEmail()));
+  }, [activePreference]);
+
+  const handleMealToggle = (mealKey) => {
+    const nextValue = toggleMeal(getSessionEmail(), undefined, mealKey);
+    setCompletedMeals(prev => ({ ...prev, [mealKey]: nextValue }));
+  };
+
+  const completedMealCount = Object.values(completedMeals).filter(Boolean).length;
 
   useEffect(() => {
     if (usingPersonalized) {
@@ -57,7 +70,7 @@ export default function DietPlanner({ userProfile, plan, onAskAI }) {
           <h2 className="font-heading font-extrabold text-2xl text-slate-800">Natural Meal Planner · {fitnessGoal}</h2>
           <p className="text-xs text-slate-400 mt-1">
             Target: <strong className="text-slate-600">{dietData?.calories || '2,200 kcal'}</strong> · <strong className="text-emerald-600">{dietData?.proteinTarget || '130g'} natural protein</strong>
-            <span className="block mt-1 text-emerald-700 font-medium">BMI: {userProfile?.bmi ?? '--'} ({userProfile?.bmiCategory || 'Unknown'})</span>
+            <span className="block mt-1 text-emerald-700 font-medium">{completedMealCount}/{mealWindows.length} meals logged · BMI: {userProfile?.bmi ?? '--'} ({userProfile?.bmiCategory || 'Unknown'})</span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 bg-slate-100 border border-slate-200 p-1.5 rounded-2xl">
@@ -113,7 +126,12 @@ export default function DietPlanner({ userProfile, plan, onAskAI }) {
                       </div>
                     </div>
                   </div>
-                  <h5 className="font-semibold text-emerald-700 text-sm mb-2">{mealInfo.title}</h5>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h5 className="font-semibold text-emerald-700 text-sm">{mealInfo.title || mw.label}</h5>
+                    <button type="button" onClick={() => handleMealToggle(mw.key)} className={`rounded-lg px-2 py-1 text-[10px] font-bold transition ${completedMeals[mw.key] ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700'}`}>
+                      {completedMeals[mw.key] ? 'Logged' : 'Log meal'}
+                    </button>
+                  </div>
                   <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">{mealInfo.options}</p>
                 </div>
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs mt-3">

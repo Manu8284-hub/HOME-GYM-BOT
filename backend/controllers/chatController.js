@@ -1,11 +1,18 @@
 import { generateFitnessResponse } from '../services/aiService.js';
 
 // In-memory chat history store for Phase 1
-const chatHistoryMemory = [];
+const chatHistoryMemory = new Map();
+
+function historyFor(email) {
+  const key = String(email || 'anonymous').trim().toLowerCase();
+  if (!chatHistoryMemory.has(key)) chatHistoryMemory.set(key, []);
+  return chatHistoryMemory.get(key);
+}
 
 export async function handleChatMessage(req, res) {
   try {
     const { message, userProfile } = req.body;
+    const history = historyFor(userProfile?.email);
 
     if (!message || message.trim() === '') {
       return res.status(400).json({ error: 'Message cannot be empty.' });
@@ -29,8 +36,8 @@ export async function handleChatMessage(req, res) {
     };
 
     // Store in memory
-    chatHistoryMemory.push(userMessageObj);
-    chatHistoryMemory.push(aiMessageObj);
+    history.push(userMessageObj);
+    history.push(aiMessageObj);
 
     return res.json({
       reply: aiMessageObj,
@@ -43,10 +50,10 @@ export async function handleChatMessage(req, res) {
 }
 
 export function getChatHistory(req, res) {
-  return res.json({ history: chatHistoryMemory });
+  return res.json({ history: historyFor(req.query.email) });
 }
 
 export function clearChatHistory(req, res) {
-  chatHistoryMemory.length = 0;
+  chatHistoryMemory.delete(String(req.query.email || 'anonymous').trim().toLowerCase());
   return res.json({ message: 'Chat history cleared successfully.' });
 }

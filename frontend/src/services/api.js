@@ -17,9 +17,10 @@ export async function sendChatMessage(message, userProfile) {
   }
 }
 
-export async function getChatHistory() {
+export async function getChatHistory(email = '') {
   try {
-    const res = await API.get('/chat/history');
+    const query = email ? `?email=${encodeURIComponent(email)}` : '';
+    const res = await API.get(`/chat/history${query}`);
     return res.data;
   } catch (err) {
     console.error('API getChatHistory error:', err);
@@ -27,9 +28,10 @@ export async function getChatHistory() {
   }
 }
 
-export async function clearChatHistory() {
+export async function clearChatHistory(email = '') {
   try {
-    const res = await API.delete('/chat/history');
+    const query = email ? `?email=${encodeURIComponent(email)}` : '';
+    const res = await API.delete(`/chat/history${query}`);
     return res.data;
   } catch (err) {
     console.error('API clearChatHistory error:', err);
@@ -102,9 +104,10 @@ export async function loginUser(payload) {
   }
 }
 
-export async function getUserProfile() {
+export async function getUserProfile(email = '') {
   try {
-    const res = await API.get('/users');
+    const query = email ? `?email=${encodeURIComponent(email)}` : '';
+    const res = await API.get(`/users${query}`);
     return res.data;
   } catch (err) {
     console.error('API getUserProfile error:', err);

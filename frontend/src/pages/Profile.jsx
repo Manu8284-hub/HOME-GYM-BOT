@@ -71,7 +71,7 @@ export default function Profile({ userProfile, setUserProfile, onSaveSuccess, on
     try {
       setSaving(true);
       const email = getSessionEmail();
-      const nextProfile = { ...formData, email: email || userProfile?.email || '' };
+      const nextProfile = { ...formData, ...bmiSnapshot, email: email || userProfile?.email || '' };
       await updateUserProfile(formData);
       if (email) saveProfile(email, nextProfile);
       setUserProfile(nextProfile);

@@ -140,7 +140,8 @@ export async function updateUserProfile(req, res) {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    const nextProfile = { ...(user.profile || {}), ...payload };
+    const { plan, onboardingComplete, progress, ...profilePayload } = payload;
+    const nextProfile = { ...(user.profile || {}), ...profilePayload };
     const bmiData = calculateBMI(nextProfile.height, nextProfile.weight);
 
     user.profile = {
@@ -149,9 +150,9 @@ export async function updateUserProfile(req, res) {
       bmiCategory: bmiData.bmiCategory
     };
     user.name = user.name || nextProfile.name || email.split('@')[0];
-    if (payload.plan) user.plan = payload.plan;
-    if (payload.onboardingComplete !== undefined) user.onboardingComplete = Boolean(payload.onboardingComplete);
-    if (payload.progress) user.progress = payload.progress;
+    if (plan) user.plan = plan;
+    if (onboardingComplete !== undefined) user.onboardingComplete = Boolean(onboardingComplete);
+    if (progress) user.progress = progress;
 
     await user.save();
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, Send, Trash2, User, CornerDownLeft } from 'lucide-react';
 import { sendChatMessage, getChatHistory, clearChatHistory } from '../services/api';
+import { getSessionEmail } from '../services/localStore';
 
 export default function AICoach({ userProfile, pendingQuery, setPendingQuery }) {
   const [messages, setMessages] = useState([
@@ -22,7 +23,7 @@ export default function AICoach({ userProfile, pendingQuery, setPendingQuery }) 
   useEffect(() => {
     async function fetchHistory() {
       try {
-        const data = await getChatHistory();
+        const data = await getChatHistory(getSessionEmail());
         if (data.history?.length > 0) {
           const formatted = data.history.map(m => ({
             id: m.id, sender: m.sender, text: m.text,
@@ -81,7 +82,7 @@ export default function AICoach({ userProfile, pendingQuery, setPendingQuery }) 
   const handleClearHistory = async () => {
     if (window.confirm("Clear chat history?")) {
       try {
-        await clearChatHistory();
+        await clearChatHistory(getSessionEmail());
         setMessages([{ id: 'reset', sender: 'ai', text: "Chat cleared. Ready for your next question!", timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
       } catch (err) { console.error(err); }
     }
@@ -162,7 +163,7 @@ export default function AICoach({ userProfile, pendingQuery, setPendingQuery }) 
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] min-h-[560px] pb-16 lg:pb-0 max-w-3xl mx-auto w-full">
+    <div className="flex flex-col h-[calc(100vh-140px)] min-h-[560px] pb-16 lg:pb-0 w-full">
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-t-3xl px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
