@@ -10,6 +10,7 @@ import dietRoutes from './routes/dietRoutes.js';
 import exerciseRoutes from './routes/exerciseRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import planRoutes from './routes/planRoutes.js';
+import { seedReferenceData } from './services/recommendationService.js';
 
 dotenv.config();
 
@@ -70,6 +71,10 @@ async function startServer() {
     await mongoose.connect(mongoUri);
 
     console.log('✅ MongoDB connected successfully');
+    if (process.env.SEED_REFERENCE_DATA !== 'false') {
+      const seeded = await seedReferenceData();
+      console.log(`✅ Reference data ready (${seeded.exercises} exercises, ${seeded.nutrition} nutrition records)`);
+    }
 
     app.listen(PORT, () => {
       console.log('================================================');

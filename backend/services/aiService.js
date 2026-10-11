@@ -2,6 +2,12 @@ import dotenv from 'dotenv';
 import { workoutPlans, exerciseLibrary, dietPlans } from '../data/fitnessData.js';
 import { formatExerciseContext, searchExerciseDataset } from './exerciseDataset.js';
 import { formatProgramContext } from './programDataset.js';
+import {
+  formatExerciseRecommendations,
+  formatNutritionRecommendations,
+  recommendExercises,
+  recommendNutrition
+} from './recommendationService.js';
 
 dotenv.config();
 
@@ -15,7 +21,14 @@ export async function generateFitnessResponse(userQuery, userProfile = {}) {
   const bmiCategory = userProfile.bmiCategory || bmiData.bmiCategory;
   const fitnessGoal = userProfile.fitnessGoal || 'Build Muscle';
   const exercisePreference = userProfile.exercisePreference || 'Home Bodyweight';
-  const exerciseDatasetContext = await formatExerciseContext(userQuery, userProfile);
+  const recommendedExercises = await recommendExercises(userProfile, userQuery, 6);
+  const recommendedNutrition = await recommendNutrition(userProfile, userQuery, 6);
+  const exerciseDatasetContext = recommendedExercises.length
+    ? formatExerciseRecommendations(recommendedExercises)
+    : await formatExerciseContext(userQuery, userProfile);
+  const nutritionDatasetContext = recommendedNutrition.length
+    ? formatNutritionRecommendations(recommendedNutrition)
+    : '';
 
   const systemInstruction = `
 You are FitBot AI, an elite personal fitness trainer, bodyweight coach, and natural whole-food sports nutritionist.
@@ -75,6 +88,7 @@ DATASET GUIDANCE:
   - Use the verified exercise records below when they match the user's question.
   - Preserve the dataset's target muscles and form instructions, but adapt equipment suggestions to the user's home-only preference.
   - Never invent a GIF URL or claim an exercise is equipment-free when the dataset says otherwise.
+  - Treat retrieved nutrition records as the source of truth for meal ingredients, calories, and protein.
 `;
 
   const profileContext = `
@@ -89,6 +103,7 @@ User Profile Context:
 - BMI: ${bmi || 'Unknown'}
 - BMI Category: ${bmiCategory}
 ${exerciseDatasetContext ? `\nVerified Exercise Dataset Matches:\n${exerciseDatasetContext}` : ''}
+${nutritionDatasetContext ? `\nVerified Nutrition Dataset Matches:\n${nutritionDatasetContext}` : ''}
 `;
 
   if (apiKey && apiKey.trim() !== '' && apiKey !== 'your_api_key_here') {
@@ -673,7 +688,7 @@ function buildFallbackPlan(userProfile = {}) {
 
 /* ----------------------------- Gemini path ------------------------------ */
 
-function buildPlanPrompt(userProfile, caps, bmi, bmiCategory) {
+function buildPlanPrompt(userProfile, caps, bmi, bmiCategory, exerciseContext, nutritionContext) {
   const pref = userProfile.dietaryPreference || 'Vegetarian';
   const availableDays = Array.isArray(userProfile.availableDays) && userProfile.availableDays.length
     ? userProfile.availableDays.join(', ')
@@ -694,6 +709,8 @@ USER:
 - Available training days: ${availableDays}
 - Current capacity (max in one set): push-ups ${caps.pushups}, squats ${caps.squats}, plank ${caps.plankSec}s, dips ${caps.dips}, lunges ${caps.lunges}, crunches ${caps.crunches}, jumping jacks ${caps.jumpingJacks}, skipping ${caps.skippingSec}s, continuous running ${caps.runMinutes} min
 ${programContext ? `\nREFERENCE WORKOUT PROGRAMS FROM DATASET:\n${programContext}` : ''}
+${exerciseContext ? `\nRETRIEVED EXERCISE RECORDS:\n${exerciseContext}` : ''}
+${nutritionContext ? `\nRETRIEVED NUTRITION RECORDS:\n${nutritionContext}` : ''}
 
 HARD RULES:
 1. HOME ONLY, 100% equipment-free bodyweight. Never use dumbbells, barbells, bands, or machines.
@@ -701,6 +718,7 @@ HARD RULES:
 3. Scale every exercise's sets/reps/rest to the user's capacity and level. A beginner or a 0-capacity user gets easier regressions.
 4. Training days (${availableDays}) get real workouts. Every other weekday MUST be a rest day: "isRest": true with light mobility only.
 5. Adjust calories/protein for the goal (deficit for fat loss, surplus for muscle/mass gain).
+6. Use retrieved records when selecting exercises and meals. Do not invent nutrition values that contradict them.
 
 RETURN ONLY THIS JSON SHAPE (no markdown, no commentary):
 {
@@ -735,7 +753,16 @@ async function generateStructuredPlan(userProfile) {
   const caps = normalizeCapacities(userProfile.capacities);
   const { bmi, bmiCategory } = resolveBMI(userProfile);
   const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
-  const prompt = buildPlanPrompt(userProfile, caps, bmi, bmiCategory);
+  const recommendedExercises = await recommendExercises(userProfile, userProfile.fitnessGoal || 'full body', 10);
+  const recommendedNutrition = await recommendNutrition(userProfile, '', 12);
+  const prompt = buildPlanPrompt(
+    userProfile,
+    caps,
+    bmi,
+    bmiCategory,
+    formatExerciseRecommendations(recommendedExercises),
+    formatNutritionRecommendations(recommendedNutrition)
+  );
 
   try {
     const response = await fetch(
