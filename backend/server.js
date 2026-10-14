@@ -14,8 +14,13 @@ import { seedReferenceData } from './services/recommendationService.js';
 
 dotenv.config();
 
-// Use Google DNS for MongoDB Atlas SRV resolution
-dns.setServers(['8.8.8.8']);
+const customDnsServers = String(process.env.MONGO_DNS_SERVERS || '')
+  .split(',')
+  .map((server) => server.trim())
+  .filter(Boolean);
+if (customDnsServers.length > 0) {
+  dns.setServers(customDnsServers);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;

@@ -79,9 +79,19 @@ PYTHON_BIN=py
 ```
 
 - `GEMINI_API_KEY` is optional. Without it, the local structured response engine is used.
+- `MONGO_URI` can be used instead of `MONGODB_URI` (both are supported by the backend).
+- `MONGO_DNS_SERVERS` is optional. Use comma-separated DNS servers only when your host requires custom DNS for Atlas SRV lookup (example: `8.8.8.8,1.1.1.1`).
 - `EXERCISES_CSV_PATH` overrides the default `dataset/exercises.csv` path.
 - `DIET_DATASET_PATH` overrides the default `dataset/diet.csv` path.
 - `PYTHON_BIN` can point to a specific Python executable, such as `py`, `python`, or an absolute path.
+
+For frontend deployment (for example Vercel/Netlify), set:
+
+```env
+VITE_API_URL=https://your-backend-domain
+```
+
+The frontend will normalize this to `https://your-backend-domain/api` automatically.
 
 ## Datasets
 
