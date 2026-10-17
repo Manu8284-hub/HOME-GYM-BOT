@@ -10,16 +10,21 @@ import dietRoutes from './routes/dietRoutes.js';
 import exerciseRoutes from './routes/exerciseRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import planRoutes from './routes/planRoutes.js';
+import Exercise from './models/Exercise.js';
 import { seedReferenceData } from './services/recommendationService.js';
 
 dotenv.config();
 
-const customDnsServers = String(process.env.MONGO_DNS_SERVERS || '')
+const customDnsServers = String(process.env.MONGO_DNS_SERVERS || '8.8.8.8,1.1.1.1')
   .split(',')
   .map((server) => server.trim())
   .filter(Boolean);
 if (customDnsServers.length > 0) {
-  dns.setServers(customDnsServers);
+  try {
+    dns.setServers(customDnsServers);
+  } catch (err) {
+    console.warn('⚠️ Could not set custom DNS servers:', err.message);
+  }
 }
 
 const app = express();
@@ -77,25 +82,34 @@ async function startServer() {
 
     console.log('✅ MongoDB connected successfully');
     if (process.env.SEED_REFERENCE_DATA !== 'false') {
-      const seeded = await seedReferenceData();
-      console.log(`✅ Reference data ready (${seeded.exercises} exercises, ${seeded.nutrition} nutrition records)`);
+      const existingCount = await Exercise.countDocuments();
+      if (existingCount === 0) {
+        const seeded = await seedReferenceData();
+        console.log(`✅ Reference data ready (${seeded.exercises} exercises, ${seeded.nutrition} nutrition records)`);
+      } else {
+        console.log(`✅ Reference data ready (${existingCount} exercises already indexed)`);
+      }
     }
-
-    app.listen(PORT, () => {
-      console.log('================================================');
-      console.log(`🚀 FitBot AI Express Server running on port ${PORT}`);
-      console.log(
-        `🔗 Health Check: http://localhost:${PORT}/api/health`
-      );
-      console.log('================================================');
-    });
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error.message);
-    console.error(
-      'Update your MONGO_URI in backend/.env with the real Atlas connection string.'
-    );
-    process.exit(1);
+    console.error('❌ MongoDB initial connection failed:', error.message);
+    console.warn('⚠️ Server will continue running with in-memory fallbacks.');
   }
+
+  const server = app.listen(PORT, () => {
+    console.log('================================================');
+    console.log(`🚀 FitBot AI Express Server running on port ${PORT}`);
+    console.log(`🔗 Health Check: http://localhost:${PORT}/api/health`);
+    console.log('================================================');
+  });
+
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${PORT} is already in use by another process.`);
+      console.error(`💡 Stop any other server running on port ${PORT} or change PORT in .env.`);
+    } else {
+      console.error('❌ Server error:', error.message);
+    }
+  });
 }
 
 startServer();
